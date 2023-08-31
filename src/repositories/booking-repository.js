@@ -1,8 +1,10 @@
 const { StatusCodes } = require("http-status-codes");
-
+const { Op } = require("sequelize");
 const { Booking } = require("../models");
 const CrudRepository = require("./crud-repository");
 const AppError = require("../utils/errors/app-error");
+const { Enums } = require("../utils/common");
+const { BOOKED, CANCELLED } = Enums.BOOKING_STATUS;
 class BookingRepository extends CrudRepository {
   constructor() {
     super(Booking);
@@ -14,7 +16,7 @@ class BookingRepository extends CrudRepository {
   }
 
   async get(data, transaction) {
-    const response = await this.model.findByPk(data, {
+    const response = await Booking.findByPk(data, {
       transaction: transaction,
     });
     if (!response) {
@@ -36,6 +38,34 @@ class BookingRepository extends CrudRepository {
         },
       },
       { transaction: transaction }
+    );
+    return response;
+  }
+
+  async cancelOldBookings(timestamp) {
+    const response = await Booking.update(
+      { status: CANCELLED },
+      {
+        where: {
+          [Op.and]: [
+            {
+              createdAt: {
+                [Op.lt]: timestamp,
+              },
+            },
+            {
+              status: {
+                [Op.ne]: BOOKED,
+              },
+            },
+            {
+              status: {
+                [Op.ne]: CANCELLED,
+              },
+            },
+          ],
+        },
+      }
     );
     return response;
   }
